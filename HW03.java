@@ -1,0 +1,288 @@
+import java.util.*;
+/* 
+  Added features
+   - Rolling 
+     - press 'H' to roll 
+     - yellow edge to show you are rolling
+     - can't shoot when you are rolling
+   - Turrets 
+     - choose number of turrets by simply changing turrets.length (2-5 recommended),
+     - make turrets.length = 100 and have some visual fun
+     - respawn after 150 frames if there is another turret alive
+     - turrets follow you around if their health gets too low
+     - rainbow swirl when they are hit
+     - health bar
+   - Pet
+     - pet follows you around
+     - pet rainbow swirl
+     - for your first hit pet turns to protective shield for 100 frames and saves you
+   - Teleport
+     - press F to teleport to a random location (-40, -40) to (40, -40)
+   - New Weapon
+     - turrets use pilonGun() when hit
+*/
+
+class HW03 extends App {
+    // NOTE: please ignore this particular use of the keyword static
+    // (static nested class); it is NOT what we talked about in lecture
+    // feel free to delete this comment after you finish reading it
+    static class Player {
+        Vector2 position;
+        double radius;
+        Vector3 color;
+        int framesSinceFired;
+        boolean rolled;
+        boolean petalive;
+        Vector2 petPosition;
+        int timeSinceShot;
+    }
+    
+    static class Turret {
+        Vector2 position;
+        double radius;
+        Vector3 color;
+        int framesSinceFired;
+        boolean alive;
+        int health;
+        int timeSinceShot;
+        boolean justDied;
+        int framesSincedead;
+    }
+    
+    static class Bullet {
+        Vector2 position;
+        Vector2 velocity;
+        double radius;
+        Vector3 color;
+        boolean alive;
+        int age;
+        int type;
+        
+        static final int TYPE_PLAYER = 0;
+        static final int TYPE_TURRET = 1;
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    double time;
+    int turretsAlive;
+    Player player;
+    
+    
+    Turret[] turrets;
+    
+    // bullets is a big, fixed-size array of Bullet objects (slots)
+    // initially all Bullet objects are "not live" ("dead"),
+    // which means they are not being updated or drawn
+    Bullet[] bullets;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
+    void fireBullet(int bulletType, Vector3 color, Vector2 position, Vector2 direction) {
+        for (int bulletIndex = 0; bulletIndex < bullets.length; ++bulletIndex) {
+            Bullet bullet = bullets[bulletIndex];
+            if (!bullet.alive) { // write to first unused ("dead") slot in bullets array
+                bullet.position = position;
+                bullet.velocity = Vector2.directionVectorFrom(position, direction);
+                bullets[bulletIndex].radius = 2.0;
+                bullet.color = color;
+                bullet.alive = true;
+                bullet.age = 0;
+                bullet.type = bulletType;
+                
+                break;
+            }
+        }
+    }
+    ////////////////////////////////////////////////////////////////////////////
+    void pilonGun(){
+        for (int turretIndex = 0; turretIndex < turrets.length; ++turretIndex) {
+            Turret turret = turrets[turretIndex];
+            fireBullet(Bullet.TYPE_TURRET, turret.color, turret.position, turret.position.plus(new Vector2(1,0)));
+            fireBullet(Bullet.TYPE_TURRET, turret.color, turret.position, turret.position.plus(new Vector2(-1,0)));
+            fireBullet(Bullet.TYPE_TURRET, turret.color, turret.position, turret.position.plus(new Vector2(0,1)));
+            fireBullet(Bullet.TYPE_TURRET, turret.color, turret.position, turret.position.plus(new Vector2(0, -1)));           
+        }
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    boolean circleCircleIntersection(Vector2 position1, double radius1, Vector2 position2, double radius2){
+        double distance = Vector2.distanceBetween(position1, position2);
+        if (distance < (radius1 + radius2)){
+            return true;
+        }
+        return false;
+    }
+    ////////////////////////////////////////////////////////////////////////////
+    void setup() {
+        
+        time = 0.0;
+        player = new Player();
+        player.position = new Vector2(0.0, -40.0);
+        player.petPosition = new Vector2(0.0, -50.0);
+        player.petalive = true;
+        player.radius = 4.0;
+        player.color = Vector3.cyan;
+        
+        // two turrets in an array
+        turrets = new Turret[3];
+        turretsAlive = turrets.length;
+        for (int turretIndex = 0; turretIndex < turrets.length; ++turretIndex) {
+            turrets[turretIndex] = new Turret();
+            turrets[turretIndex].health = 5;
+            turrets[turretIndex].alive = true;
+            turrets[turretIndex].timeSinceShot = 0;
+            turrets[turretIndex].radius = 8.0;
+            double x_pos = ( (turretIndex+1) * 128.0/(turrets.length+1) ) - 64;
+            turrets[turretIndex].position = new Vector2(x_pos, 0.0);
+        }
+        bullets = new Bullet[256];
+        for (int bulletIndex = 0; bulletIndex < bullets.length; ++bulletIndex) {
+            bullets[bulletIndex] = new Bullet();
+            
+        }
+        
+    }
+    //////////////////////////////////////////////////////////////////////////////
+    void loop() {
+        time += 0.05;
+         
+        // player
+        if (keyHeld('W')) { player.position.y += 1.0; }
+        if (keyHeld('A')) { player.position.x -= 1.0; }
+        if (keyHeld('S')) { player.position.y -= 1.0; }
+        if (keyHeld('D')) { player.position.x += 1.0; }
+        if (keyPressed('F')) { 
+            Random random = new Random();
+            int randomNumber = random.nextInt(81) - 40;
+            player.position = new Vector2(randomNumber, -40);
+        }
+        drawCircle(player.position, player.radius, player.color);
+        
+        if (player.framesSinceFired++ == 8) {
+            player.framesSinceFired = 0;
+            if (keyHeld('H')) { 
+                player.rolled = true;
+                player.color = Vector3.yellow;
+            } else {
+                player.rolled = false;
+                if (keyHeld('I')) { fireBullet(Bullet.TYPE_PLAYER, player.color, player.position, player.position.plus(new Vector2(0,1))); }
+                if (keyHeld('J')) { fireBullet(Bullet.TYPE_PLAYER, player.color, player.position, player.position.plus(new Vector2(-1,0))); }
+                if (keyHeld('K')) { fireBullet(Bullet.TYPE_PLAYER, player.color, player.position, player.position.plus(new Vector2(0,-1))); }
+                if (keyHeld('L')) { fireBullet(Bullet.TYPE_PLAYER, player.color, player.position, player.position.plus(new Vector2(1,0))); }
+                player.color = Vector3.cyan;
+            }
+            
+        }
+        if(Vector2.distanceBetween(player.position, player.petPosition) > 10.0) {
+            player.petPosition = player.petPosition.plus(Vector2.directionVectorFrom(player.petPosition, player.position));
+        }
+        if(player.timeSinceShot > 0){
+                player.color = Vector3.rainbowSwirl(time);
+                if(player.timeSinceShot == 1){ player.color = Vector3.cyan;}
+                player.timeSinceShot--;
+            } 
+        drawCircle(player.position, player.radius/2, Vector3.cyan);
+        if(player.petalive){
+            drawCircle(player.petPosition, 1.5, Vector3.rainbowSwirl(time));
+        }
+        
+        // turret
+        
+        for (int turretIndex = 0; turretIndex < turrets.length; ++turretIndex) {
+            
+            Turret turret = turrets[turretIndex];
+            if(turret.justDied){ 
+                turretsAlive--;
+                turret.justDied = false;
+            }
+            if(turret.health == 0){turret.alive = false;}
+            
+            if(!turret.alive){ 
+                turret.framesSincedead++;
+                if(turretsAlive > 0 && turret.framesSincedead > 150){
+                    turret.alive = true;
+                    turretsAlive++;
+                    turret.health = 5;
+                    turret.framesSincedead = 0;
+                }
+                
+            }
+            
+            if(!turret.alive){ continue; }
+            
+            if(turret.health < 3) {
+            turret.position = turret.position.plus(Vector2.directionVectorFrom(turret.position, player.position));
+            }
+            
+            if(turret.timeSinceShot > 0){
+                turret.color = Vector3.rainbowSwirl(time);
+                turret.timeSinceShot--;
+                pilonGun();
+            } else {
+                turret.color = Vector3.red;
+            }
+            if (turret.framesSinceFired++ == 16) {
+                turret.framesSinceFired = 0;
+                fireBullet(Bullet.TYPE_TURRET, turret.color, turret.position, player.position); 
+            }
+            drawCircle(turret.position, turret.radius, turret.color);
+            Vector2 healthBarPos = turret.position.plus(new Vector2(0, -1.5*turret.radius));
+            Vector2 healthBarShape = new Vector2((turret.health * turret.radius/5),turret.radius/4);
+            drawCenterRectangle(healthBarPos, healthBarShape, turret.color);
+            
+        }
+        
+        // bullets
+        for (int bulletIndex = 0; bulletIndex < bullets.length; ++bulletIndex) {
+            Bullet bullet = bullets[bulletIndex];
+            
+            if (!bullet.alive) { continue; } // skip dead bullets
+            
+            // kill bullets that are too old (they're probably off-screen anyway)
+            if (bullet.age++ > 128) {
+                bullet.alive = false;
+            }
+            
+            // "physics"
+            bullet.position = bullet.position.plus(bullet.velocity);
+            
+            // draw
+            drawCircle(bullet.position, bullet.radius, bullet.color);
+            
+            // check intersections
+            if(bullet.alive){
+                if(bullet.type == Bullet.TYPE_TURRET){
+                    if(circleCircleIntersection(player.position, player.radius, bullet.position, bullet.radius) && !player.rolled){
+                        if(player.petalive){ 
+                            player.petalive = false;
+                            player.timeSinceShot = 100;
+                        } else if (player.timeSinceShot == 0){
+                            reset();
+                        }
+                    }//
+                } else {
+                    for(int turretIndex = 0; turretIndex < turrets.length; turretIndex++){
+                        Turret turret = turrets[turretIndex];
+                        if(turret.alive && circleCircleIntersection(turret.position, turret.radius, bullet.position, bullet.radius)){
+                            bullet.alive = false;
+                            turret.health--;
+                            turret.timeSinceShot = 100;
+                            if(turret.health == 0) {turret.justDied = true;}
+                        }
+                    } 
+                }
+            }
+            // finish check intersections
+        }
+    }
+    
+    public static void main(String[] arguments) {
+        App app = new HW03();
+        app.setWindowBackgroundColor(0.0, 0.0, 0.0);
+        app.setWindowSizeInWorldUnits(128.0, 128.0);
+        app.setWindowCenterInWorldUnits(0.0, 0.0);
+        app.setWindowHeightInPixels(512);
+        app.setWindowTopLeftCornerInPixels(64, 64);
+        app.run();
+    }
+}

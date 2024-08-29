@@ -1,7 +1,8 @@
 # Bubble-Shooter-Game
 
 Start playing with termainal commands 
-- javac HW03.class 
+- javac Cow.java
+- javac HW03.java
 - java HW03
 
 
